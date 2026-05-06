@@ -22,6 +22,7 @@ pipeline {
                     echo 'Building payment-service...'
                     script {
                         if (isUnix()) {
+                            sh 'chmod +x mvnw'
                             sh './mvnw clean install -DskipTests'
                         } else {
                             bat 'mvnw.cmd clean install -DskipTests'
@@ -37,6 +38,7 @@ pipeline {
                     echo 'Running tests...'
                     script {
                         if (isUnix()) {
+                            sh 'chmod +x mvnw'
                             sh './mvnw test'
                         } else {
                             bat 'mvnw.cmd test'
