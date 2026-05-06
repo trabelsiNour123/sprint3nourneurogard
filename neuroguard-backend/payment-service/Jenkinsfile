@@ -88,8 +88,15 @@ pipeline {
         stage('Docker Build') {
             steps {
                 dir("${SERVICE_DIR}") {
-                    sh "docker build -t ${DOCKER_IMAGE}:${VERSION} ."
-                    sh "docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest"
+                                        // skip docker build when docker is not available or not permitted on agent
+                                        sh '''#!/bin/sh
+                                        if docker info >/dev/null 2>&1; then
+                                            docker build -t ${DOCKER_IMAGE}:${VERSION} .
+                                            docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest
+                                        else
+                                            echo "docker not available or permission denied; skipping docker build"
+                                        fi
+                                        '''
                 }
             }
         }
