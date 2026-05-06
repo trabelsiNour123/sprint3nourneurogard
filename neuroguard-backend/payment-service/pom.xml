@@ -74,9 +74,43 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            
         </dependencies>
     </dependencyManagement>
+ 
 
+    <profiles>
+    <profile>
+        <id>test</id>
+        <properties>
+            <spring.profiles.active>test</spring.profiles.active>
+        </properties>
+        <dependencies>
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </profile>
+    
+    <profile>
+        <id>integration-test</id>
+        <build>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <configuration>
+                        <includes>
+                            <include>**/*IntegrationTest.java</include>
+                        </includes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </build>
+    </profile>
+</profiles>
     <build>
         <plugins>
             <plugin>
@@ -92,6 +126,7 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
