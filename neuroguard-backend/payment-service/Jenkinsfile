@@ -1,6 +1,9 @@
 pipeline {
     agent any
-
+    // prefer a Jenkins-managed JDK tool named 'jdk17' if configured on the controller/agent
+    tools {
+        jdk 'jdk17'
+    }
     // Using the project's Maven Wrapper (`./mvnw`) and the system Java installed on the agent.
     // Remove `tools` requirement so the pipeline won't fail when named tool installations
     // (like 'JDK17' or 'Maven3') are not configured in the Jenkins controller.
