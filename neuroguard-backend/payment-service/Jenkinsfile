@@ -1,10 +1,9 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'JDK17'
-        maven 'Maven3'
-    }
+    // Using the project's Maven Wrapper (`./mvnw`) and the system Java installed on the agent.
+    // Remove `tools` requirement so the pipeline won't fail when named tool installations
+    // (like 'JDK17' or 'Maven3') are not configured in the Jenkins controller.
 
     environment {
         SERVICE_DIR = 'neuroguard-backend/payment-service'
