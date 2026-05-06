@@ -34,6 +34,8 @@ USER appuser
 EXPOSE 8085
 
 # Healthcheck pour vérifier que le service est opérationnel
+# Ensure wget is available on alpine; install if missing and use it for healthcheck
+RUN apk add --no-cache wget || true
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8085/actuator/health || exit 1
 

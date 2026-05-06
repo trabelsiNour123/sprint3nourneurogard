@@ -58,7 +58,8 @@ pipeline {
 
     post {
         always {
-            sh 'docker system prune -f || true'
+            // Avoid destructive global prune on shared agents. Keep local cleanup minimal.
+            sh 'docker image prune -f || true'
         }
         success {
             echo "Pipeline SUCCESS: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
