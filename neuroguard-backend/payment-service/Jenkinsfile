@@ -2,56 +2,53 @@ pipeline {
     agent any
 
     environment {
-        // Nom de l'image Docker
         DOCKER_IMAGE = "neuroguard/payment-service"
-        // Version (utilise le numéro de build Jenkins)
         VERSION = "1.0.${env.BUILD_NUMBER}"
     }
 
     stages {
+
         stage('📦 Checkout') {
             steps {
                 echo 'Récupération du code...'
+                checkout scm
             }
         }
 
         stage('🏗️ Build & Install') {
             steps {
                 dir('neuroguard-backend/payment-service') {
-                    echo 'Compilation et installation des dépendances...'
-                    sh 'mvn clean install -DskipTests'
+                    echo 'Compilation...'
+                    sh './mvnw clean install -DskipTests'
                 }
             }
         }
 
-        stage('🧪 Execution des Tests') {
+        stage('🧪 Tests') {
             steps {
                 dir('neuroguard-backend/payment-service') {
-                    echo 'Lancement des tests unitaires...'
-                    sh 'mvn test'
+                    echo 'Tests...'
+                    sh './mvnw test'
                 }
             }
             post {
                 always {
-                    // Archive les rapports de tests pour les voir dans Jenkins
                     junit 'neuroguard-backend/payment-service/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('🐳 Build Image Docker') {
+        stage('🐳 Docker Build') {
             steps {
                 dir('neuroguard-backend/payment-service') {
-                    echo "Construction de l'image Docker ${DOCKER_IMAGE}:${VERSION}..."
                     sh "docker build -t ${DOCKER_IMAGE}:${VERSION} ."
                     sh "docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest"
                 }
             }
         }
 
-        stage('🚀 Status Image') {
+        stage('🚀 Status') {
             steps {
-                echo "Image disponible localement : ${DOCKER_IMAGE}:${VERSION}"
                 sh "docker images | grep ${DOCKER_IMAGE}"
             }
         }
@@ -59,10 +56,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline terminée avec succès !'
+            echo '✅ Pipeline OK'
         }
         failure {
-            echo '❌ Échec de la pipeline. Vérifiez les logs.'
+            echo '❌ Erreur pipeline'
         }
     }
 }
