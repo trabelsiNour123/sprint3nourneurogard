@@ -21,8 +21,22 @@ pipeline {
         stage('Build & Test') {
             steps {
                 dir("${SERVICE_DIR}") {
-                    sh 'chmod +x mvnw'
-                    sh './mvnw clean test -Ptest -Dspring.profiles.active=test'
+                    // ensure mvnw is executable and run in one shell so env exports apply
+                    sh '''#!/bin/sh
+                    chmod +x mvnw
+                    # try to detect a suitable JAVA_HOME from the agent's java
+                    if [ -x "$(command -v java)" ]; then
+                      JAVA_BIN=$(command -v java)
+                      JAVA_HOME=$(dirname $(dirname $(readlink -f "$JAVA_BIN"))) || true
+                      echo "Detected JAVA_HOME=${JAVA_HOME}"
+                      export JAVA_HOME
+                      export PATH="$JAVA_HOME/bin:$PATH"
+                    else
+                      echo "java not found on PATH; mvnw will use default java in shell"
+                    fi
+                    # remove -Ptest (profile missing) and run tests with test profile as spring property
+                    ./mvnw clean test -Dspring.profiles.active=test
+                    '''
                 }
             }
             post {
