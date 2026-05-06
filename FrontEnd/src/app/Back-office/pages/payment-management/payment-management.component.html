@@ -1,0 +1,174 @@
+<div class="payment-page">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Payment Management</h2>
+      <p class="page-subtitle">Create and monitor payments from the admin dashboard.</p>
+    </div>
+  </div>
+
+  <div class="alerts">
+    <div class="alert alert-success" *ngIf="successMessage">{{ successMessage }}</div>
+    <div class="alert alert-danger" *ngIf="errorMessage">{{ errorMessage }}</div>
+  </div>
+
+  <div class="payment-layout">
+    <section class="payment-card">
+      <h3 class="section-title">Mode de paiement</h3>
+
+      <div class="method-grid">
+        <button
+          type="button"
+          class="method-option"
+          [class.active]="selectedMethod === 'CARD'"
+          (click)="selectMethod('CARD')"
+        >
+          <span class="method-icon">💳</span>
+          <span>Carte bancaire</span>
+        </button>
+
+        <button
+          type="button"
+          class="method-option"
+          [class.active]="selectedMethod === 'PAYPAL'"
+          (click)="selectMethod('PAYPAL')"
+        >
+          <span class="method-icon paypal">P</span>
+          <span>PayPal</span>
+        </button>
+      </div>
+
+      <div class="form-grid">
+        <label class="field full">
+          <span class="field-label">Numéro de carte</span>
+          <div class="input-shell with-aside">
+            <input
+              [(ngModel)]="cardNumber"
+              [disabled]="selectedMethod !== 'CARD'"
+              placeholder="1234 5678 9012 3456"
+            />
+            <span class="brands">MC VISA DISC</span>
+          </div>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Date d'expiration</span>
+          <div class="input-shell">
+            <input
+              [(ngModel)]="expiryDate"
+              [disabled]="selectedMethod !== 'CARD'"
+              placeholder="MM/YY"
+            />
+          </div>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Code de sécurité</span>
+          <div class="input-shell with-aside">
+            <input
+              [(ngModel)]="securityCode"
+              [disabled]="selectedMethod !== 'CARD'"
+              placeholder="123"
+            />
+            <span class="aside-icon">CVC</span>
+          </div>
+        </label>
+      </div>
+
+      <h3 class="section-title billing-title">Adresse de facturation</h3>
+
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Order ID</span>
+          <div class="input-shell">
+            <input type="number" [(ngModel)]="orderId" placeholder="Ex: 1" />
+          </div>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Montant</span>
+          <div class="input-shell">
+            <input type="number" min="0.01" step="0.01" [(ngModel)]="amount" placeholder="Ex: 120.00" />
+          </div>
+        </label>
+
+        <label class="field full">
+          <span class="field-label">Nom complet</span>
+          <div class="input-shell">
+            <input [(ngModel)]="fullName" placeholder="Nom complet" />
+          </div>
+        </label>
+
+        <label class="field full">
+          <span class="field-label">Pays ou région</span>
+          <div class="input-shell select-shell">
+            <select [(ngModel)]="country">
+              <option value="Tunisie">Tunisie</option>
+              <option value="France">France</option>
+              <option value="Maroc">Maroc</option>
+              <option value="Algérie">Algérie</option>
+            </select>
+          </div>
+        </label>
+
+        <label class="field full">
+          <span class="field-label">Adresse - Ligne 1</span>
+          <div class="input-shell">
+            <input [(ngModel)]="addressLine1" placeholder="Adresse - Ligne 1" />
+          </div>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary pay-btn" (click)="submitPayment()" [disabled]="isSubmitting">
+          {{ isSubmitting ? 'Processing...' : 'Create payment' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="history-card">
+      <div class="history-header">
+        <div>
+          <h3 class="section-title mb-0">Payment History</h3>
+          <p class="lookup-help">Load payments by order to review or update status.</p>
+        </div>
+        <div class="lookup-box">
+          <input type="number" [(ngModel)]="lookupOrderId" placeholder="Order ID" />
+          <button class="btn btn-outline-primary" (click)="loadPayments()" [disabled]="isLoadingPayments">
+            {{ isLoadingPayments ? 'Loading...' : 'Search' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="payments-list" *ngIf="payments.length > 0; else emptyState">
+        <article class="payment-item" *ngFor="let payment of payments; trackBy: trackByPaymentId">
+          <div class="payment-top">
+            <div>
+              <h4>#{{ payment.id }} - Order {{ payment.orderId }}</h4>
+              <p>{{ payment.paymentMethod }} • {{ payment.createdAt | date: 'medium' }}</p>
+            </div>
+            <div class="amount">{{ payment.amount | number: '1.2-2' }} TND</div>
+          </div>
+
+          <div class="payment-bottom">
+            <span class="status-pill" [class]="'status-pill ' + payment.status.toLowerCase()">{{ payment.status }}</span>
+
+            <select
+              class="status-select"
+              [ngModel]="payment.status"
+              (ngModelChange)="setStatus(payment, $event)"
+            >
+              <option *ngFor="let status of statusOptions" [ngValue]="status">{{ status }}</option>
+            </select>
+          </div>
+        </article>
+      </div>
+
+      <ng-template #emptyState>
+        <div class="empty-state">
+          <h4>No payments found</h4>
+          <p>Search by order ID or create a new payment from the form.</p>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+</div>

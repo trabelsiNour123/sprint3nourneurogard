@@ -1,0 +1,68 @@
+pipeline {
+    agent any
+
+    environment {
+        // Nom de l'image Docker
+        DOCKER_IMAGE = "neuroguard/product-order-service"
+        // Version (utilise le numéro de build Jenkins)
+        VERSION = "1.0.${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('📦 Checkout') {
+            steps {
+                echo 'Récupération du code...'
+            }
+        }
+
+        stage('🏗️ Build & Install') {
+            steps {
+                dir('neuroguard-backend/product-order-service') {
+                    echo 'Compilation et installation des dépendances...'
+                    sh 'mvn clean install -DskipTests'
+                }
+            }
+        }
+
+        stage('🧪 Execution des Tests') {
+            steps {
+                dir('neuroguard-backend/product-order-service') {
+                    echo 'Lancement des tests unitaires...'
+                    sh 'mvn test'
+                }
+            }
+            post {
+                always {
+                    // Archive les rapports de tests pour les voir dans Jenkins
+                    junit 'neuroguard-backend/product-order-service/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('🐳 Build Image Docker') {
+            steps {
+                dir('neuroguard-backend/product-order-service') {
+                    echo "Construction de l'image Docker ${DOCKER_IMAGE}:${VERSION}..."
+                    sh "docker build -t ${DOCKER_IMAGE}:${VERSION} ."
+                    sh "docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest"
+                }
+            }
+        }
+
+        stage('🚀 Status Image') {
+            steps {
+                echo "Image disponible localement : ${DOCKER_IMAGE}:${VERSION}"
+                sh "docker images | grep ${DOCKER_IMAGE}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline terminée avec succès !'
+        }
+        failure {
+            echo '❌ Échec de la pipeline. Vérifiez les logs.'
+        }
+    }
+}

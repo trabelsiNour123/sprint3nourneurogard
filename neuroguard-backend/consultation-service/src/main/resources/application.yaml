@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: consultation-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/consultation_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: ""
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 60000
+    jedis:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+
+server:
+  port: 8090
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
+
+jwt:
+  secret: XDkzF2YNPA/7vXmPYJmaACjY6VBhwHJbr4pzPF5jguE=
+
+user-service:
+  url: http://localhost:8081
+
+logging:
+  level:
+    com.neuroguard.consultationservice.security: DEBUG
+    org.springframework.security: DEBUG
+
+app:
+  geocoding:
+    provider: nominatim
+    nominatim:
+      user-agent: NeuroGuard-ConsultationService/1.0
+  distance-matrix:
+    provider: google
+    google:
+      api-key: AIzaSyCmUOklXWRUK52Ijlqcmz8IiDmaYUWPkLo
+      modes: DRIVING,WALKING,TRANSIT,BICYCLING
+      cache-ttl-minutes: 120
+  location:
+    streaming:
+      enabled: true
+      cache-ttl-seconds: 300
+      broadcast-interval-ms: 5000
+  websocket:
+    enabled: true
+    endpoint: /ws-location
