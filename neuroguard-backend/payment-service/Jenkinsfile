@@ -57,8 +57,8 @@ pipeline {
 
     post {
         always {
-            // Avoid destructive global prune on shared agents. Keep local cleanup minimal.
-            sh 'docker image prune -f || true'
+            // Avoid failing if Docker is not available on the agent (e.g., no docker socket).
+            sh 'if docker info >/dev/null 2>&1; then docker image prune -f; else echo "docker not available"; fi || true'
         }
         success {
             echo "Pipeline SUCCESS: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
