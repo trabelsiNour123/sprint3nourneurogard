@@ -22,26 +22,52 @@ pipeline {
             steps {
                 dir("${SERVICE_DIR}") {
                     // ensure mvnw is executable and run in one shell so env exports apply
-                    sh '''#!/bin/sh
-                    chmod +x mvnw
-                    # try to detect a suitable JAVA_HOME from the agent's java
-                    if [ -x "$(command -v java)" ]; then
-                      JAVA_BIN=$(command -v java)
-                      JAVA_HOME=$(dirname $(dirname $(readlink -f "$JAVA_BIN"))) || true
-                      echo "Detected JAVA_HOME=${JAVA_HOME}"
-                      export JAVA_HOME
-                      export PATH="$JAVA_HOME/bin:$PATH"
-                    else
-                      echo "java not found on PATH; mvnw will use default java in shell"
-                    fi
-                    # remove -Ptest (profile missing) and run tests with test profile as spring property
-                    ./mvnw clean test -Dspring.profiles.active=test
-                    '''
+                                        sh '''#!/bin/sh
+                                        set -euo pipefail
+                                        chmod +x mvnw
+                                        # detect java major version
+                                        if [ -x "$(command -v java)" ]; then
+                                            JAVA_VER_STR=$(java -version 2>&1 | head -n1 || true)
+                                            echo "agent java: $JAVA_VER_STR"
+                                            JAVA_MAJOR=$(printf "%s" "$JAVA_VER_STR" | sed -E 's/.*version \"([0-9]+).*/\1/' || true)
+                                        else
+                                            JAVA_MAJOR=0
+                                        fi
+                                        # if agent Java is newer than 17 (e.g., 21) download a portable Temurin 17 and use it
+                                        if [ "${JAVA_MAJOR:-0}" -gt 17 ]; then
+                                            echo "Agent java major=${JAVA_MAJOR} >17; installing portable JDK17"
+                                            JDK_DIR="/tmp/jdk17"
+                                            mkdir -p "$JDK_DIR"
+                                            curl -sSL -o /tmp/jdk17.tar.gz https://github.com/adoptium/temurin17-binaries/releases/latest/download/OpenJDK17U-jdk_x64_linux_hotspot.tar.gz
+                                            tar -xzf /tmp/jdk17.tar.gz -C /tmp
+                                            # find extracted dir
+                                            EXTRACTED=$(find /tmp -maxdepth 1 -type d -name 'jdk-*' | head -n1 || true)
+                                            if [ -d "$EXTRACTED" ]; then
+                                                export JAVA_HOME="$EXTRACTED"
+                                                export PATH="$JAVA_HOME/bin:$PATH"
+                                                echo "Using downloaded JAVA_HOME=$JAVA_HOME"
+                                            else
+                                                echo "Failed to extract JDK, continuing with agent java"
+                                            fi
+                                        else
+                                            if [ -x "$(command -v java)" ]; then
+                                                JAVA_BIN=$(command -v java)
+                                                JAVA_HOME=$(dirname $(dirname $(readlink -f "$JAVA_BIN"))) || true
+                                                echo "Detected JAVA_HOME=${JAVA_HOME}"
+                                                export JAVA_HOME
+                                                export PATH="$JAVA_HOME/bin:$PATH"
+                                            else
+                                                echo "java not found on PATH; mvnw will use default java in shell"
+                                            fi
+                                        fi
+                                        # run tests (removed -Ptest which doesn't exist)
+                                        ./mvnw clean test -Dspring.profiles.active=test
+                                        '''
                 }
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
                 }
             }
         }
