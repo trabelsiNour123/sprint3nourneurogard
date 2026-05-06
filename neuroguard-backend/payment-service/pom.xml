@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <lombok.version>1.18.26</lombok.version>
+        <lombok.version>1.18.30</lombok.version>
         <spring-cloud.version>2025.0.1</spring-cloud.version>
     </properties>
 
@@ -88,13 +88,6 @@
                     <release>${java.version}</release>
                     <fork>true</fork>
                     <executable>${env.JAVA_HOME}/bin/javac</executable>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>${lombok.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
