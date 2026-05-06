@@ -2,64 +2,89 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "neuroguard/payment-service"
+        SERVICE_DIR = 'neuroguard-backend/payment-service'
+        DOCKER_IMAGE = 'neuroguard/payment-service'
         VERSION = "1.0.${env.BUILD_NUMBER}"
     }
 
     stages {
-
-        stage('📦 Checkout') {
+        stage('Checkout') {
             steps {
-                echo 'Récupération du code...'
+                echo 'Checking out source code...'
                 checkout scm
             }
         }
 
-        stage('🏗️ Build & Install') {
+        stage('Build') {
             steps {
-                dir('neuroguard-backend/payment-service') {
-                    echo 'Compilation...'
-                    sh './mvnw clean install -DskipTests'
+                dir("${SERVICE_DIR}") {
+                    echo 'Building payment-service...'
+                    script {
+                        if (isUnix()) {
+                            sh 'mvn clean install -DskipTests'
+                        } else {
+                            bat 'mvn clean install -DskipTests'
+                        }
+                    }
                 }
             }
         }
 
-        stage('🧪 Tests') {
+        stage('Test') {
             steps {
-                dir('neuroguard-backend/payment-service') {
-                    echo 'Tests...'
-                    sh './mvnw test'
+                dir("${SERVICE_DIR}") {
+                    echo 'Running tests...'
+                    script {
+                        if (isUnix()) {
+                            sh 'mvn test'
+                        } else {
+                            bat 'mvn test'
+                        }
+                    }
                 }
             }
             post {
                 always {
-                    junit 'neuroguard-backend/payment-service/target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true, testResults: "${SERVICE_DIR}/target/surefire-reports/*.xml"
                 }
             }
         }
 
-        stage('🐳 Docker Build') {
+        stage('Docker Build') {
             steps {
-                dir('neuroguard-backend/payment-service') {
-                    sh "docker build -t ${DOCKER_IMAGE}:${VERSION} ."
-                    sh "docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest"
+                dir("${SERVICE_DIR}") {
+                    script {
+                        if (isUnix()) {
+                            sh "docker build -t ${DOCKER_IMAGE}:${VERSION} ."
+                            sh "docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest"
+                        } else {
+                            bat "docker build -t ${DOCKER_IMAGE}:${VERSION} ."
+                            bat "docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest"
+                        }
+                    }
                 }
             }
         }
 
-        stage('🚀 Status') {
+        stage('Image Status') {
             steps {
-                sh "docker images | grep ${DOCKER_IMAGE}"
+                script {
+                    if (isUnix()) {
+                        sh "docker images ${DOCKER_IMAGE}"
+                    } else {
+                        bat "docker images ${DOCKER_IMAGE}"
+                    }
+                }
             }
         }
     }
 
     post {
         success {
-            echo '✅ Pipeline OK'
+            echo 'Pipeline completed successfully.'
         }
         failure {
-            echo '❌ Erreur pipeline'
+            echo 'Pipeline failed.'
         }
     }
 }
