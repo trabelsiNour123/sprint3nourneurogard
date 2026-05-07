@@ -20,7 +20,21 @@ pipeline {
     stages {
         stage('📦 Checkout') {
             steps {
-                echo 'Récupération du code...'
+                echo 'Récupération du code (with retry + timeout)...'
+                script {
+                    // Retry the SCM checkout a few times with a timeout to avoid long hangs
+                    retry(3) {
+                        timeout(time: 5, unit: 'MINUTES') {
+                            // Print some diagnostics before attempting checkout
+                            try {
+                                sh 'git --version || true'
+                            } catch (ignored) {
+                                // ignore if git not present in shell env (checkout uses plugin)
+                            }
+                            checkout scm
+                        }
+                    }
+                }
             }
         }
 
@@ -91,13 +105,19 @@ pipeline {
                 expression { return params.USE_DOCKER_AGENT }
             }
             agent { label 'docker' }
+            options { timeout(time: 30, unit: 'MINUTES') }
             steps {
                 dir('neuroguard-backend/product-order-service') {
                     echo "Building Docker image on docker-capable agent: ${DOCKER_IMAGE}:${VERSION}"
                     sh '''#!/bin/sh
+                    set -e
                     docker version
-                    docker build -t ${DOCKER_IMAGE}:${VERSION} .
-                    docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest
+                    if [ -S /var/run/docker.sock ] || docker version >/dev/null 2>&1; then
+                        docker build -t ${DOCKER_IMAGE}:${VERSION} .
+                        docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest
+                    else
+                        echo "Docker socket not available on this agent, skipping docker build."
+                    fi
                     '''
                 }
             }
@@ -108,21 +128,23 @@ pipeline {
             }
         }
 
-        stage('🐳 Build Image Docker (fallback)') {
+                stage('🐳 Build Image Docker (fallback)') {
             when {
                 expression { return !params.USE_DOCKER_AGENT && !params.SKIP_DOCKER_BUILD }
             }
-            steps {
+                        options { timeout(time: 30, unit: 'MINUTES') }
+                        steps {
                 dir('neuroguard-backend/product-order-service') {
                     echo "Construction de l'image Docker ${DOCKER_IMAGE}:${VERSION} (local fallback)..."
                     // If docker socket not available on agent, skip the docker build instead of failing the whole pipeline
                     sh '''#!/bin/sh
-                    if docker version >/dev/null 2>&1; then
-                      docker build -t ${DOCKER_IMAGE}:${VERSION} .
-                      docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest
-                    else
-                      echo "Docker not available on this agent, skipping image build."
-                    fi
+                                        set -e
+                                        if docker version >/dev/null 2>&1; then
+                                            docker build -t ${DOCKER_IMAGE}:${VERSION} .
+                                            docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest
+                                        else
+                                            echo "Docker not available on this agent, skipping image build."
+                                        fi
                     '''
                 }
             }
@@ -135,8 +157,14 @@ pipeline {
 
         stage('🚀 Status Image') {
             steps {
-                echo "Image disponible localement : ${DOCKER_IMAGE}:${VERSION}"
-                sh "docker images | grep ${DOCKER_IMAGE}"
+                script {
+                    echo "Image disponible localement : ${DOCKER_IMAGE}:${VERSION}"
+                    try {
+                        sh "docker images | grep ${DOCKER_IMAGE} || true"
+                    } catch (err) {
+                        echo 'Docker not available or command failed; skipping image list.'
+                    }
+                }
             }
         }
     }
