@@ -8,6 +8,9 @@ pipeline {
         string(name: 'DOCKER_JOB_NAME', defaultValue: 'product-order-service-docker', description: 'Name of downstream Jenkins job to build/push Docker image')
         string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry host (e.g. registry.example.com)')
         string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: '', description: 'Credentials id for Docker registry (optional)')
+        // Optional SSH fallback if HTTPS checkout fails (useful when agents can't reach github.com:443)
+        string(name: 'REPO_SSH_URL', defaultValue: '', description: 'SSH git URL fallback (e.g. git@github.com:owner/repo.git)')
+        string(name: 'SCM_CREDENTIALS_ID', defaultValue: '', description: 'Credentials id for SSH git (private key)')
     }
 
     environment {
@@ -31,7 +34,19 @@ pipeline {
                             } catch (ignored) {
                                 // ignore if git not present in shell env (checkout uses plugin)
                             }
-                            checkout scm
+                            // Try the configured SCM (usually HTTPS). If it fails and an SSH fallback is provided,
+                            // attempt an SSH checkout using the provided credentials.
+                            try {
+                                checkout scm
+                            } catch (checkoutErr) {
+                                echo "HTTPS checkout failed: ${checkoutErr}."
+                                if (params.REPO_SSH_URL?.trim()) {
+                                    echo "Attempting SSH fallback checkout from ${params.REPO_SSH_URL}"
+                                    checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: params.REPO_SSH_URL, credentialsId: params.SCM_CREDENTIALS_ID]], doGenerateSubmoduleConfigurations: false, extensions: [] ])
+                                } else {
+                                    throw checkoutErr
+                                }
+                            }
                         }
                     }
                 }
