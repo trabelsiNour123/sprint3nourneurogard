@@ -1,0 +1,106 @@
+pipeline {
+    agent { label 'docker' }
+
+    parameters {
+        string(name: 'DOCKER_IMAGE', defaultValue: 'neuroguard/product-order-service', description: 'Docker image name')
+        string(name: 'VERSION', defaultValue: '1.0.${BUILD_NUMBER}', description: 'Image tag/version')
+        string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry prefix (e.g. registry.example.com)')
+        string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: '', description: 'Jenkins credentials id for registry (username/password)')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                dir('neuroguard-backend/product-order-service') {
+                    script {
+                        def fullImage = params.DOCKER_REGISTRY ? "${params.DOCKER_REGISTRY}/${params.DOCKER_IMAGE}:${params.VERSION}" : "${params.DOCKER_IMAGE}:${params.VERSION}"
+                        sh "docker build -t ${fullImage} ."
+                        sh "docker tag ${fullImage} ${params.DOCKER_REGISTRY ? params.DOCKER_REGISTRY + '/' + params.DOCKER_IMAGE + ':latest' : params.DOCKER_IMAGE + ':latest'}"
+                    }
+                }
+            }
+        }
+
+        stage('Push image') {
+            when {
+                expression { return params.DOCKER_CREDENTIALS_ID?.trim() }
+            }
+            steps {
+                dir('neuroguard-backend/product-order-service') {
+                    script {
+                        def registry = params.DOCKER_REGISTRY ?: ''
+                        def image = params.DOCKER_IMAGE
+                        def ver = params.VERSION
+                        def fullImage = registry ? "${registry}/${image}:${ver}" : "${image}:${ver}"
+
+                        withCredentials([usernamePassword(credentialsId: params.DOCKER_CREDENTIALS_ID, usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                            sh "echo $REG_PASS | docker login ${registry ?: 'https://index.docker.io/v1/'} -u $REG_USER --password-stdin"
+                            sh "docker push ${fullImage}"
+                            sh "docker push ${registry ? registry + '/' + image + ':latest' : image + ':latest'}"
+                            sh "docker logout ${registry ?: ''} || true"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Docker job finished.'
+        }
+    }
+}
+pipeline {
+    agent { label 'docker' }
+
+    parameters {
+        string(name: 'DOCKER_IMAGE', defaultValue: 'neuroguard/product-order-service', description: 'Image name (without registry)')
+        string(name: 'VERSION', defaultValue: '1.0.${env.BUILD_NUMBER}', description: 'Image version tag')
+        string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry host (e.g. registry.example.com)')
+        string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: '', description: 'Jenkins credentials id for registry (username/password)')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checkout source to build image on docker host'
+                checkout scm
+            }
+        }
+
+        stage('Build & Push Image') {
+            steps {
+                dir('neuroguard-backend/product-order-service') {
+                    script {
+                        def fullImage = params.DOCKER_REGISTRY ? "${params.DOCKER_REGISTRY}/${params.DOCKER_IMAGE}" : "${params.DOCKER_IMAGE}"
+                        sh "docker build -t ${fullImage}:${params.VERSION} ."
+                        sh "docker tag ${fullImage}:${params.VERSION} ${fullImage}:latest"
+
+                        if (params.DOCKER_CREDENTIALS_ID?.trim()) {
+                            withCredentials([usernamePassword(credentialsId: params.DOCKER_CREDENTIALS_ID, usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                                sh "echo $REG_PASS | docker login ${params.DOCKER_REGISTRY} -u $REG_USER --password-stdin"
+                                sh "docker push ${fullImage}:${params.VERSION}"
+                                sh "docker push ${fullImage}:latest"
+                                sh "docker logout ${params.DOCKER_REGISTRY} || true"
+                            }
+                        } else {
+                            echo 'No registry credentials provided — skipping push.'
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success { echo 'Docker build/push job finished.' }
+        failure { echo 'Docker build/push job failed.' }
+    }
+}
