@@ -4,6 +4,10 @@ pipeline {
     parameters {
         booleanParam(name: 'USE_DOCKER_AGENT', defaultValue: false, description: 'Run Docker build on a docker-labeled agent')
         booleanParam(name: 'SKIP_DOCKER_BUILD', defaultValue: false, description: 'Skip local docker build (useful when building/pushing from separate job)')
+        booleanParam(name: 'TRIGGER_DOCKER_JOB', defaultValue: false, description: 'Trigger separate Docker build/push job')
+        string(name: 'DOCKER_JOB_NAME', defaultValue: 'product-order-service-docker', description: 'Name of downstream Jenkins job to build/push Docker image')
+        string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry host (e.g. registry.example.com)')
+        string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: '', description: 'Credentials id for Docker registry (optional)')
     }
 
     environment {
@@ -61,6 +65,23 @@ pipeline {
                 always {
                     // Archive les rapports de tests pour les voir dans Jenkins
                     junit 'neuroguard-backend/product-order-service/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('🔁 Trigger Docker Job') {
+            when {
+                expression { return params.TRIGGER_DOCKER_JOB }
+            }
+            steps {
+                script {
+                    echo "Triggering downstream Docker job: ${params.DOCKER_JOB_NAME}"
+                    build job: params.DOCKER_JOB_NAME, wait: false, parameters: [
+                        string(name: 'DOCKER_IMAGE', value: env.DOCKER_IMAGE),
+                        string(name: 'VERSION', value: env.VERSION),
+                        string(name: 'DOCKER_REGISTRY', value: params.DOCKER_REGISTRY ?: ''),
+                        string(name: 'DOCKER_CREDENTIALS_ID', value: params.DOCKER_CREDENTIALS_ID ?: '')
+                    ]
                 }
             }
         }
