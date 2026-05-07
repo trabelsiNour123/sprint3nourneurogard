@@ -19,17 +19,38 @@ pipeline {
             steps {
                 dir('neuroguard-backend/product-order-service') {
                     echo 'Compilation et installation des dépendances...'
-                    sh 'mvn clean install -DskipTests'
+                    // use the project's Maven Wrapper when available
+                                        sh '''#!/bin/sh
+                                        if [ -f ./mvnw ]; then
+                                            chmod +x ./mvnw || true
+                                            ./mvnw clean install -DskipTests
+                                        elif [ -f ../mvnw ]; then
+                                            chmod +x ../mvnw || true
+                                            ../mvnw clean install -DskipTests
+                                        else
+                                            mvn clean install -DskipTests
+                                        fi
+                                        '''
                 }
             }
         }
 
         stage('🧪 Execution des Tests') {
             steps {
-                dir('neuroguard-backend/product-order-service') {
-                    echo 'Lancement des tests unitaires...'
-                    sh 'mvn test'
-                }
+                                dir('neuroguard-backend/product-order-service') {
+                                        echo 'Lancement des tests unitaires...'
+                                        sh '''#!/bin/sh
+                                        if [ -f ./mvnw ]; then
+                                            chmod +x ./mvnw || true
+                                            ./mvnw test
+                                        elif [ -f ../mvnw ]; then
+                                            chmod +x ../mvnw || true
+                                            ../mvnw test
+                                        else
+                                            mvn test
+                                        fi
+                                        '''
+                                }
             }
             post {
                 always {
